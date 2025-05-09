@@ -1,5 +1,8 @@
 #include "image_io.hpp"
 #include <opencv2/opencv.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/highgui.hpp>
 
 std::vector<std::vector<float>> loadImage(const std::string& path) {
     cv::Mat img = cv::imread(path, cv::IMREAD_GRAYSCALE);
