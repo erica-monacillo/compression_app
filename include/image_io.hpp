@@ -2,10 +2,8 @@
 #include <string>
 #include <vector>
 
-std::vector<std::vector<float>> loadImage(const std::string& path);
+std::vector<std::vector<float>> loadBinImage(const std::string& path, int rows, int cols);
 void saveImage(const std::vector<std::vector<float>>& image, const std::string& path);
-
-// Optional: for loading/saving 3-band RGB images
 void saveColorImage(const std::vector<std::vector<float>>& R,
                     const std::vector<std::vector<float>>& G,
                     const std::vector<std::vector<float>>& B,
