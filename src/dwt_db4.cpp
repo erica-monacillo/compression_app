@@ -47,7 +47,8 @@ void dwt1D(const std::vector<float>& input, std::vector<float>& approx, std::vec
 
 std::vector<float> idwt1D(const std::vector<float>& approx, const std::vector<float>& detail) {
     int n = approx.size();
-    std::vector<float> result(n * 2, 0.0f);
+    std::vector<float> result(n * 2 + 2, 0.0f); // +2 for padding to fully support 4-tap
+
     for (int k = 0; k < n; ++k) {
         for (int j = 0; j < 4; ++j) {
             int idx = 2 * k + j;
@@ -56,8 +57,12 @@ std::vector<float> idwt1D(const std::vector<float>& approx, const std::vector<fl
             }
         }
     }
+
+    // Trim padding
+    result.resize(n * 2); 
     return result;
 }
+
 
 void dwt2D_db4(const std::vector<std::vector<float>>& input,
                std::vector<std::vector<float>>& LL,
@@ -98,29 +103,49 @@ void dwt2D_db4(const std::vector<std::vector<float>>& input,
     }
 }
 
-std::vector<std::vector<float>> idwt2D_db4(const std::vector<std::vector<float>>& LL,
-                                           const std::vector<std::vector<float>>& LH,
-                                           const std::vector<std::vector<float>>& HL,
-                                           const std::vector<std::vector<float>>& HH) {
+std::vector<std::vector<float>> idwt2D_db4(
+    const std::vector<std::vector<float>>& LL,
+    const std::vector<std::vector<float>>& LH,
+    const std::vector<std::vector<float>>& HL,
+    const std::vector<std::vector<float>>& HH) {
+
     int h = LL.size();
     int w = LL[0].size();
     int fullH = h * 2;
     int fullW = w * 2;
 
-    std::vector<std::vector<float>> cols(fullW, std::vector<float>(h));
+    std::vector<std::vector<float>> temp(fullH, std::vector<float>(w));
+
+    // Column-wise inverse DWT
     for (int j = 0; j < w; ++j) {
-        std::vector<float> low = idwt1D(LL[j], HL[j]);
-        std::vector<float> high = idwt1D(LH[j], HH[j]);
+        std::vector<float> ll_col(h), lh_col(h), hl_col(h), hh_col(h);
+        for (int i = 0; i < h; ++i) {
+            ll_col[i] = LL[i][j];
+            lh_col[i] = LH[i][j];
+            hl_col[i] = HL[i][j];
+            hh_col[i] = HH[i][j];
+        }
+
+        std::vector<float> approx = idwt1D(ll_col, hl_col);
+        std::vector<float> detail = idwt1D(lh_col, hh_col);
 
         for (int i = 0; i < fullH; ++i) {
-            cols[2 * j][i]     = low[i];
-            cols[2 * j + 1][i] = high[i];
+            temp[i][j * 2]     = approx[i];
+            temp[i][j * 2 + 1] = detail[i];
         }
     }
 
+    // Row-wise inverse DWT
     std::vector<std::vector<float>> output(fullH, std::vector<float>(fullW));
     for (int i = 0; i < fullH; ++i) {
-        output[i] = idwt1D(cols[i], cols[i]); // dummy placeholder for now
+        std::vector<float> row_approx(w), row_detail(w);
+        for (int j = 0; j < w; ++j) {
+            row_approx[j] = temp[i][j * 2];
+            row_detail[j] = temp[i][j * 2 + 1];
+        }
+        output[i] = idwt1D(row_approx, row_detail);
     }
+
     return output;
 }
+
