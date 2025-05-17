@@ -1,38 +1,44 @@
 #include <iostream>
 #include <fstream>
 #include <unordered_map>
+#include <sstream>
 #include "dwt_db4.hpp"
 #include "huffman.hpp"
 #include "image_io.hpp"
 #include "utils.hpp"
-#include <opencv2/opencv.hpp>
 
 int main() {
     std::string outputPath = "output/reconstructed_image.png";
-    int total_values = 20750; // from above
-    int side = static_cast<int>(std::sqrt(total_values)); // ≈ 144
+    int rows = 145;
+    int cols = 145;
 
-    int rows = 144;
-    int cols = 144;
-    int originalRows = rows;
-    int originalCols = cols;
-
-
+    // Declare a container to store multiple bands
+    std::vector<std::vector<std::vector<float>>> bands;
 
     std::cout << "[1] Loading raw hyperspectral bands..." << std::endl;
-    std::vector<std::vector<float>> R = loadBinImage("data/band_0.bin", rows, cols);
-    std::vector<std::vector<float>> G = loadBinImage("data/band_1.bin", rows, cols);
-    std::vector<std::vector<float>> B = loadBinImage("data/band_2.bin", rows, cols);
-    std::vector<std::vector<std::vector<float>>> channels = {R, G, B};
+    // Load bands 0 to 199
+    for (int i = 0; i <= 199; ++i) {
+        std::ostringstream filename;
+        filename << "data/band_" << i << ".bin";
+        std::vector<std::vector<float>> band = loadBinImage(filename.str(), rows, cols);
+        bands.push_back(band);
+        std::cout << "Loaded band_" << i << ".bin\n";
+    }
+
+    // Create a container for reconstructed channels
     std::vector<std::vector<std::vector<float>>> channels_reconstructed;
 
+    // Process only the first 3 channels as RGB (you can extend this as needed)
     for (int c = 0; c < 3; ++c) {
         std::cout << "\n=== Processing Channel " << c << " ===" << std::endl;
-        auto image = channels[c];
+        auto image = bands[c];
+
+        int originalRows = image.size();
+        int originalCols = image[0].size();
 
         // Pad to even size
-        if (image.size() % 2 != 0) image.push_back(image.back());
-        if (image[0].size() % 2 != 0) for (auto& row : image) row.push_back(row.back());
+        if (originalRows % 2 != 0) image.push_back(image.back());
+        if (originalCols % 2 != 0) for (auto& row : image) row.push_back(row.back());
 
         std::cout << "[2] Applying Level 1 DWT (db4)..." << std::endl;
         std::vector<std::vector<float>> LL1, LH1, HL1, HH1;
@@ -46,104 +52,38 @@ int main() {
         dwt2D_db4(LL1, LL2, LH2, HL2, HH2);
 
         std::cout << "[3] Flattening + Real Huffman Encoding..." << std::endl;
-        if (LL2.size() % 2 != 0) LL2.push_back(LL2.back());
-        if (LL2[0].size() % 2 != 0) for (auto& row : LL2) row.push_back(row.back());
-
         std::vector<int> flattened = flatten(LL2);
         std::unordered_map<int, std::string> huffTable;
         std::string encoded = huffmanEncode(flattened, huffTable);
 
         std::unordered_map<std::string, int> reverseTable;
-        for (auto& pair : huffTable)
+        for (const auto& pair : huffTable)
             reverseTable[pair.second] = pair.first;
 
         std::vector<int> decoded = huffmanDecode(encoded, reverseTable);
 
-        int ll2_rows = originalRows / 4;
-        int ll2_cols = originalCols / 4;
-        size_t expectedSize = ll2_rows * ll2_cols;
-
-        if (decoded.size() != expectedSize) {
-            std::cerr << "❌ Error: Decoded size (" << decoded.size() 
-                    << ") does not match expected size (" << expectedSize << ")!" << std::endl;
+        size_t expectedSize = LL2.size() * LL2[0].size();
+        if (decoded.size() < expectedSize) {
+            std::cerr << "❌ Error: Decoded size too small!" << std::endl;
             return -1;
         }
 
-
-        std::cout << "Decoded size: " << decoded.size() << std::endl;
-        std::cout << "Expected size (LL2): " << ll2_rows << " x " << ll2_cols
-                << " = " << expectedSize << std::endl;
-
-        std::vector<std::vector<float>> reconstructed_LL2;
-        try {
-            std::cout << "Unflattening to " << ll2_rows << " x " << ll2_cols << std::endl;
-            std::cout << "Decoded vector size: " << decoded.size() << std::endl;
-
-            reconstructed_LL2 = unflatten(decoded, ll2_rows, ll2_cols);
-        } catch (const std::exception& e) {
-            std::cerr << "❌ Exception in unflatten: " << e.what() << std::endl;
-            return -1;
-        }
+        std::vector<std::vector<float>> reconstructed_LL2 = unflatten(decoded, originalRows / 4, originalCols / 4);
 
         std::cout << "[4] Reconstructing..." << std::endl;
-
-        // Zero-band generator
         auto zeroBand = [](int h, int w) {
             return std::vector<std::vector<float>>(h, std::vector<float>(w, 0.0f));
         };
+        auto LH2_z = zeroBand(LH2.size(), LH2[0].size());
+        auto HL2_z = zeroBand(HL2.size(), HL2[0].size());
+        auto HH2_z = zeroBand(HH2.size(), HH2[0].size());
+        std::vector<std::vector<float>> reconstructed_LL1 = idwt2D_db4(reconstructed_LL2, LH2_z, HL2_z, HH2_z);
 
-        // Pad reconstructed_LL1 to even size before inverse DWT Level 1
-        if (reconstructed_LL1.size() % 2 != 0) reconstructed_LL1.push_back(reconstructed_LL1.back());
-        if (reconstructed_LL1[0].size() % 2 != 0)
-            for (auto& row : reconstructed_LL1) row.push_back(row.back());
+        auto LH1_z = zeroBand(LH1.size(), LH1[0].size());
+        auto HL1_z = zeroBand(HL1.size(), HL1[0].size());
+        auto HH1_z = zeroBand(HH1.size(), HH1[0].size());
 
-        // Recompute dimensions after padding
-        int ll1_rows = reconstructed_LL1.size();
-        int ll1_cols = reconstructed_LL1[0].size();
-
-        if (ll2_rows == 0 || ll2_cols == 0) {
-            std::cerr << "❌ Error: reconstructed_LL2 is empty or invalid size!" << std::endl;
-            return -1;
-        }
-
-        // Now make zero bands that match
-        auto LH1_z = zeroBand(ll1_rows, ll1_cols);
-        auto HL1_z = zeroBand(ll1_rows, ll1_cols);
-        auto HH1_z = zeroBand(ll1_rows, ll1_cols);
-
-        // Pad reconstructed_LL2 to even size before inverse DWT Level 2
-        if (reconstructed_LL2.size() % 2 != 0) reconstructed_LL2.push_back(reconstructed_LL2.back());
-        if (reconstructed_LL2[0].size() % 2 != 0)
-            for (auto& row : reconstructed_LL2) row.push_back(row.back());
-
-        // Pad zero bands as well (if needed)
-        if (LH2_z.size() % 2 != 0) LH2_z.push_back(LH2_z.back());
-        if (LH2_z[0].size() % 2 != 0)
-            for (auto& row : LH2_z) row.push_back(row.back());
-
-        if (HL2_z.size() % 2 != 0) HL2_z.push_back(HL2_z.back());
-        if (HL2_z[0].size() % 2 != 0)
-            for (auto& row : HL2_z) row.push_back(row.back());
-
-        if (HH2_z.size() % 2 != 0) HH2_z.push_back(HH2_z.back());
-        if (HH2_z[0].size() % 2 != 0)
-            for (auto& row : HH2_z) row.push_back(row.back());
-
-
-        // Inverse DWT Level 2
         std::vector<std::vector<float>> reconstructed = idwt2D_db4(reconstructed_LL1, LH1_z, HL1_z, HH1_z);
-
-        // Level 1 zero bands
-        int ll1_rows = reconstructed_LL1.size();
-        int ll1_cols = reconstructed_LL1.empty() ? 0 : reconstructed_LL1[0].size();
-
-        auto LH1_z = zeroBand(ll1_rows, ll1_cols);
-        auto HL1_z = zeroBand(ll1_rows, ll1_cols);
-        auto HH1_z = zeroBand(ll1_rows, ll1_cols);
-
-        // Inverse DWT Level 1
-        std::vector<std::vector<float>> reconstructed = idwt2D_db4(reconstructed_LL1, LH1_z, HL1_z, HH1_z);
-
 
         std::cout << "[5] Evaluating..." << std::endl;
         evaluate(image, reconstructed);
