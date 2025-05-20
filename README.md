@@ -86,7 +86,7 @@ BPP: 1.45
 compression_app/
 ├── data/                   # .bin hyperspectral inputs
 ├── output/                 # Encoded & reconstructed outputs
-├── include/                # Header files
+├── include/                # Header files (.hpp)
 ├── src/                    # Source code (.cpp)
 │   ├── main.cpp
 │   ├── dwt_db4.cpp
