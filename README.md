@@ -115,11 +115,6 @@ BPP (Bits Per Pixel)
 
 ---
 
- Just copy everything inside the **code block above** and paste it into your `README.md` file on GitHub.
-
-If you want, I can also generate the actual file (`README.md`) for download or auto-upload to your repo.
-
-
 
 
 
