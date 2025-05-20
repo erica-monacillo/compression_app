@@ -87,6 +87,10 @@ compression_app/
 ├── data/                   # .bin hyperspectral inputs
 ├── output/                 # Encoded & reconstructed outputs
 ├── include/                # Header files (.hpp)
+│   ├── dwt_db4.hpp
+│   ├── huffman.hpp
+│   ├── image_io.hpp
+│   ├── utils.hpp
 ├── src/                    # Source code (.cpp)
 │   ├── main.cpp
 │   ├── dwt_db4.cpp
