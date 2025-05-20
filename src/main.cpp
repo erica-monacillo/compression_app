@@ -1,20 +1,5 @@
 #include <iostream>
 #include <fstream>
-<<<<<<< Updated upstream
-#include "dwt.hpp"
-#include "huffman.hpp"
-#include "image_io.hpp"
-#include "utils.hpp"
-
-int main() {
-    std::string outputPath = "output/reconstructed_image.png";
-    int rows = 145, cols = 145;
-
-    std::cout << "[1] Loading raw hyperspectral bands..." << std::endl;
-    std::vector<std::vector<float>> R = loadBinImage("data/band_0.bin", rows, cols);
-    std::vector<std::vector<float>> G = loadBinImage("data/band_1.bin", rows, cols);
-    std::vector<std::vector<float>> B = loadBinImage("data/band_2.bin", rows, cols);
-=======
 #include <cmath>
 #include <unordered_map>
 #include <vector>
@@ -113,7 +98,6 @@ int main() {
         std::cerr << "❌ Loaded images have inconsistent sizes." << std::endl;
         return -1;
     }
->>>>>>> Stashed changes
 
     std::vector<std::vector<std::vector<float>>> channels = {R, G, B};
     std::vector<std::vector<std::vector<float>>> channels_reconstructed;
@@ -122,49 +106,6 @@ int main() {
         std::cout << "\n=== Processing Channel " << c << " ===" << std::endl;
         auto image = channels[c];
 
-<<<<<<< Updated upstream
-        // Padding for even size
-        if (image.size() % 2 != 0)
-            image.push_back(image.back());
-        if (image[0].size() % 2 != 0)
-            for (auto& row : image)
-                row.push_back(row.back());
-
-        std::cout << "[2] Applying Level 1 DWT..." << std::endl;
-        std::vector<std::vector<float>> LL1, LH1, HL1, HH1;
-        dwt2D(image, LL1, LH1, HL1, HH1);
-
-        // Padding LL1 for Level 2
-        if (LL1.size() % 2 != 0)
-            LL1.push_back(LL1.back());
-        if (LL1[0].size() % 2 != 0)
-            for (auto& row : LL1)
-                row.push_back(row.back());
-
-        std::cout << "[2] Applying Level 2 DWT..." << std::endl;
-        std::vector<std::vector<float>> LL2, LH2, HL2, HH2;
-        dwt2D(LL1, LL2, LH2, HL2, HH2);
-
-        // Crash-safe check
-        if (LL2.empty() || LL2[0].empty() || LH2.empty() || LH2[0].empty() || HL2.empty() || HL2[0].empty() || HH2.empty() || HH2[0].empty()) {
-            std::cerr << "❌ Error: One or more Level-2 DWT sub-bands are empty!" << std::endl;
-            return -1;
-        }
-
-        std::cout << "[3] Flattening + Huffman Encoding..." << std::endl;
-        std::vector<int> flattened = flatten(LL2);
-        std::string encoded = huffmanEncode(flattened);
-        std::vector<int> decoded = huffmanDecode(encoded);
-
-        size_t expectedSize = LL2.size() * LL2[0].size();
-        if (decoded.size() < expectedSize) {
-            std::cerr << "❌ Error: Decoded Huffman data is smaller than expected (" 
-                      << decoded.size() << " < " << expectedSize << ")." << std::endl;
-            return -1;
-        }
-
-        std::vector<std::vector<float>> reconstructed_LL2 = unflatten(decoded, LL2.size(), LL2[0].size());
-=======
         std::cout << "[DEBUG] Original image size: " << image.size() << " x " << image[0].size() << std::endl;
         padToEven(image);
         if (!checkRowSizes(image, "Image")) return -1;
@@ -244,40 +185,11 @@ int main() {
             std::cout << "Warning: Decoded Huffman data longer than expected. Truncating." << std::endl;
             decoded.resize(expectedSize);
         }
->>>>>>> Stashed changes
 
         std::vector<std::vector<float>> reconstructed_LL2 = unflatten(decoded, LL2.size(), LL2[0].size());
 
         std::cout << "[4] Reconstructing..." << std::endl;
 
-<<<<<<< Updated upstream
-        // IDWT 1: LL2 → LL1
-        std::vector<std::vector<float>> LH2_z(LH2.size(), std::vector<float>(LH2[0].size(), 0.0f));
-        std::vector<std::vector<float>> HL2_z(HL2.size(), std::vector<float>(HL2[0].size(), 0.0f));
-        std::vector<std::vector<float>> HH2_z(HH2.size(), std::vector<float>(HH2[0].size(), 0.0f));
-        std::vector<std::vector<float>> reconstructed_LL1 = idwt2D(reconstructed_LL2, LH2_z, HL2_z, HH2_z);
-
-        // Crash-safe check for level-1 IDWT
-        if (LH1.empty() || HL1.empty() || HH1.empty()) {
-            std::cerr << "❌ Error: LH1, HL1, or HH1 is empty after Level 1 DWT." << std::endl;
-            return -1;
-        }
-        if (LH1[0].empty() || HL1[0].empty() || HH1[0].empty()) {
-            std::cerr << "❌ Error: LH1[0], HL1[0], or HH1[0] is empty." << std::endl;
-            std::cerr << "Sizes: LH1=" << LH1.size() << "x" << (LH1.empty() ? 0 : LH1[0].size())
-                    << ", HL1=" << HL1.size() << "x" << (HL1.empty() ? 0 : HL1[0].size())
-                    << ", HH1=" << HH1.size() << "x" << (HH1.empty() ? 0 : HH1[0].size()) << std::endl;
-            return -1;
-        }
-
-
-        // IDWT 2: LL1 → reconstructed image
-        std::vector<std::vector<float>> LH1_z(LH1.size(), std::vector<float>(LH1[0].size(), 0.0f));
-        std::vector<std::vector<float>> HL1_z(HL1.size(), std::vector<float>(HL1[0].size(), 0.0f));
-        std::vector<std::vector<float>> HH1_z(HH1.size(), std::vector<float>(HH1[0].size(), 0.0f));
-        std::vector<std::vector<float>> reconstructed = idwt2D(reconstructed_LL1, LH1_z, HL1_z, HH1_z);
-
-=======
         // Use the actual subbands for reconstruction!
         std::vector<std::vector<float>> reconstructed_LL1 = idwt2D_db4(
             reconstructed_LL2, LH2, HL2, HH2);
@@ -300,7 +212,6 @@ int main() {
                     v = 255.0f * (v - minVal) / (maxVal - minVal);
         }
 
->>>>>>> Stashed changes
         std::cout << "[5] Evaluating..." << std::endl;
         evaluate(image, reconstructed);
         double ssim = computeSSIM(image, reconstructed);

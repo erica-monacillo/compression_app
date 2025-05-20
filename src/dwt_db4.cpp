@@ -62,26 +62,22 @@ void dwt2D_db4(const std::vector<std::vector<float>>& input,
                std::vector<std::vector<float>>& HL,
                std::vector<std::vector<float>>& HH) {
     int h = input.size();
-    int w = (h > 0) ? input[0].size() : 0;
+    if (h == 0) {
+        std::cerr << "Error: Input has no rows." << std::endl;
+        return;
+    }
+    int w = input[0].size();
 
     // Check all rows are the same size
     for (size_t i = 0; i < input.size(); ++i) {
         if (input[i].size() != static_cast<size_t>(w)) {
-            std::cerr << "DWT input row " << i << " size " << input[i].size()
-                      << " does not match expected " << w << std::endl;
+            std::cerr << "Error: Input rows are not all of equal length." << std::endl;
             return;
         }
     }
 
-    std::cout << "[DEBUG] h: " << h << " w: " << w << " (h%2=" << (h%2) << ", w%2=" << (w%2) << ")" << std::endl;
-
-    // Add this debug print here
-    for (size_t i = 0; i < input.size(); ++i) {
-        std::cout << "[DEBUG] Row " << i << " size: " << input[i].size() << std::endl;
-    }
-
     if (h % 2 != 0 || w % 2 != 0) {
-        std::cerr << "Error: Input dimensions must be even for DWT. h=" << h << " w=" << w << std::endl;
+        std::cerr << "Error: Input dimensions must be even for DWT." << std::endl;
         return;
     }
 
