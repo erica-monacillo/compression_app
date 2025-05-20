@@ -1,55 +1,71 @@
-Hybrid Image Compression using Daubechies DWT (db4) + Huffman Coding
-📌 Introduction
-This project implements a hybrid image compression prototype for hyperspectral imagery using two key techniques:
+# Hybrid Hyperspectral Image Compression using Daubechies DWT (db4) + Huffman Coding
 
-1. Daubechies Wavelet Transform (DWT) - specifically the db4 filter
-2. Real Huffman Coding
+This project implements a hybrid compression prototype using:
+- **Daubechies Wavelet Transform (db4)** for multi-level decomposition
+- **Real Huffman Coding** for entropy-based lossless compression
 
-The goal is to efficiently compress 3 selected bands from a hyperspectral dataset and reconstruct them with minimal loss of quality, as measured by MSE, PSNR, and SSIM.
-🧰 Tools & Environment
-- Language: C++
-- Compiler: g++ (MinGW64)
-- Libraries: OpenCV (for image I/O), C++ STL
-- Platform: Windows 10 / MSYS2 / Git Bash
+It is designed for hyperspectral data (e.g., 145×145×200 bands) but currently focuses on compressing the first 3 bands (RGB).
 
-🔁 Compression Flow Overview
-1. **Data Input:**
-   - Three `.bin` files (band_0.bin, band_1.bin, band_2.bin) with shape (145, 145).
-   - Automatically detects image dimensions.
+---
 
-2. **Preprocessing:**
-   - Pads the image to ensure even dimensions for wavelet transform.
+## Tools & Environment
 
-3. **2-Level Daubechies DWT (db4):**
-   - Apply Level-1 db4 DWT → LL1
-   - Apply Level-2 db4 DWT on LL1 → LL2 (final compressed data)
+| Tool           | Description               |
+|----------------|---------------------------|
+| C++            | Core language             |
+| OpenCV         | Image loading/saving      |
+| MinGW + MSYS2  | Windows build toolchain   |
+| Git            | Version control           |
 
-4. **Flatten & Compress:**
-   - Flatten LL2 into a 1D array
-   - Apply Real Huffman Coding to compress the data
+---
 
-5. **Decompression & Reconstruction:**
-   - Huffman decoding
-   - Inverse DWT Level 2: LL2 → LL1 (with LH2, HL2, HH2 zeroed)
-   - Inverse DWT Level 1: LL1 → Reconstructed image (with LH1, HL1, HH1 zeroed)
+## Compression Flow
 
-6. **Postprocessing:**
-   - Crop reconstructed image to original size (145x145)
+```text
+              ┌──────────────────────────┐
+              │  Input .bin (3 bands)    │
+              └──────────┬───────────────┘
+                         │
+              For Each Band (R/G/B)
+                         ▼
+         ┌────────────────────────────────┐
+         │  1. Level-1 DWT (db4)          │
+         │  2. Level-2 DWT (db4 on LL1)   │
+         └──────────┬─────────────────────┘
+                    ▼
+         ┌───────────────────────────────┐
+         │  3. Huffman Encoding (LL2)    │
+         └──────────┬────────────────────┘
+                    ▼
+         ┌───────────────────────────────┐
+         │  4. Huffman Decoding (LL2)    │
+         └──────────┬────────────────────┘
+                    ▼
+         ┌───────────────────────────────┐
+         │  5. IDWT Level-2 (LL2 → LL1)  │
+         │  6. IDWT Level-1 (LL1 → Image)│
+         └──────────┬────────────────────┘
+                    ▼
+        ┌────────────────────────────────┐
+        │  7. Evaluation (PSNR, SSIM)    │
+        │  8. Save Output Image (.png)   │
+        └────────────────────────────────┘
 
-7. **Evaluation:**
-   - Compute MSE, PSNR, SSIM
-   - Output compressed size, CR (Compression Ratio), BPP (Bits Per Pixel)
 
-8. **Save Output:**
-   - Save reconstructed image (color) and compressed `.bin` files.
-✨ Features
-- Daubechies db4 transform for better frequency localization
-- 2-level compression for higher CR
-- Huffman coding with custom Huffman table generation
-- Works for any image size (auto-detection + crop)
-- Final image output in PNG format
+ Features
+Fully working DWT db4 decomposition (level 1 & level 2)
 
-🧪 Output Example (Console Log)
+ Real Huffman encoding/decoding using frequency tables
+
+ Automatic .bin image size detection
+
+ Crops reconstructed output to match original size
+
+ Outputs evaluation metrics (MSE, PSNR, SSIM, CR, BPP)
+
+ Sample Console Output
+
+$ ./compressApp
 [1] Loading raw hyperspectral bands...
 
 === Processing Channel 0 ===
@@ -58,15 +74,48 @@ The goal is to efficiently compress 3 selected bands from a hyperspectral datase
 [3] Flattening + Real Huffman Encoding...
 [4] Reconstructing...
 [5] Evaluating...
-MSE: 187.323
-PSNR: 25.41 dB
-SSIM: 0.872
-Compression Ratio: 4.33
-BPP: 1.72
+MSE: 872.2
+PSNR: 18.7 dB
+SSIM: 0.61
+CR: 5.45
+BPP: 1.45
+ DONE! Output saved to output/reconstructed_image.png
 
-[6] Saving full color output...
-✅ DONE! Output saved to output/reconstructed_image.png
+
+ Folder Structure
+compression_app/
+├── data/                   # .bin hyperspectral inputs
+├── output/                 # Encoded & reconstructed outputs
+├── include/                # Header files
+├── src/                    # Source code (.cpp)
+│   ├── main.cpp
+│   ├── dwt_db4.cpp
+│   ├── huffman.cpp
+│   ├── image_io.cpp
+│   ├── utils.cpp
+├── README.md
+
+
+Evaluation Metrics
+MSE (Mean Squared Error)
+
+PSNR (Peak Signal-to-Noise Ratio)
+
+SSIM (Structural Similarity)
+
+CR (Compression Ratio)
+
+BPP (Bits Per Pixel)
+
+
 
 ---
 
-Created for research: Hybrid Hyperspectral Image Compression using Daubechies DWT (db4) and Huffman Coding.
+ Just copy everything inside the **code block above** and paste it into your `README.md` file on GitHub.
+
+If you want, I can also generate the actual file (`README.md`) for download or auto-upload to your repo.
+
+
+
+
+
