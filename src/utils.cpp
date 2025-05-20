@@ -59,3 +59,44 @@ double computeSSIM(const std::vector<std::vector<float>>& img1,
                   ((mu1 * mu1 + mu2 * mu2 + C1) * (sigma1_sq + sigma2_sq + C2));
     return ssim;
 }
+
+// Compute mean Spectral Angle Mapper (SAM) between original and reconstructed images
+double computeMeanSAM(
+    const std::vector<std::vector<std::vector<float>>>& original,
+    const std::vector<std::vector<std::vector<float>>>& reconstructed)
+{
+    int bands = original.size();
+    int rows = original[0].size();
+    int cols = original[0][0].size();
+    double sam_sum = 0.0;
+    int count = 0;
+
+    for (int i = 0; i < rows; ++i) {
+        for (int j = 0; j < cols; ++j) {
+            // Build spectrum vectors for this pixel
+            std::vector<float> orig_spec(bands), recon_spec(bands);
+            for (int b = 0; b < bands; ++b) {
+                orig_spec[b] = original[b][i][j];
+                recon_spec[b] = reconstructed[b][i][j];
+            }
+            // Compute dot product and norms
+            double dot = 0.0, norm_orig = 0.0, norm_recon = 0.0;
+            for (int b = 0; b < bands; ++b) {
+                dot += orig_spec[b] * recon_spec[b];
+                norm_orig += orig_spec[b] * orig_spec[b];
+                norm_recon += recon_spec[b] * recon_spec[b];
+            }
+            norm_orig = std::sqrt(norm_orig);
+            norm_recon = std::sqrt(norm_recon);
+            if (norm_orig > 0 && norm_recon > 0) {
+                double cos_theta = dot / (norm_orig * norm_recon);
+                // Clamp to [-1, 1] to avoid NaNs
+                cos_theta = std::max(-1.0, std::min(1.0, cos_theta));
+                double angle = std::acos(cos_theta); // in radians
+                sam_sum += angle;
+                ++count;
+            }
+        }
+    }
+    return (count > 0) ? (sam_sum / count) : 0.0; // mean SAM in radians
+}

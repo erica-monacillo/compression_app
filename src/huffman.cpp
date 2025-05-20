@@ -76,7 +76,7 @@ std::string huffmanEncode(const std::vector<int>& data, std::unordered_map<int, 
 }
 
 // Decoding
-std::vector<int> huffmanDecode(const std::string& encoded, const std::unordered_map<std::string, int>& reverseTable) {
+std::vector<int> huffmanDecode(const std::string& encoded, const std::unordered_map<std::string, int>& reverseTable, size_t expectedSymbols) {
     std::vector<int> result;
     std::string current;
     for (char bit : encoded) {
@@ -85,8 +85,8 @@ std::vector<int> huffmanDecode(const std::string& encoded, const std::unordered_
         if (it != reverseTable.end()) {
             result.push_back(it->second);
             current.clear();
+            if (result.size() == expectedSymbols) break;
         }
     }
-    // Optionally, check if current is empty; if not, the bitstream is corrupted
     return result;
 }

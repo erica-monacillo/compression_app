@@ -7,3 +7,7 @@ void evaluate(const std::vector<std::vector<float>>& orig, const std::vector<std
 
 double computeSSIM(const std::vector<std::vector<float>>& img1,
                    const std::vector<std::vector<float>>& img2);
+
+double computeMeanSAM(
+    const std::vector<std::vector<std::vector<float>>>& original,
+    const std::vector<std::vector<std::vector<float>>>& reconstructed);
