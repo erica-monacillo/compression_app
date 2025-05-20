@@ -53,7 +53,7 @@ It is designed for hyperspectral data (e.g., 145×145×200 bands) but currently 
 
 
  Features
-Fully working DWT db4 decomposition (level 1 & level 2)
+ Fully working DWT db4 decomposition (level 1 & level 2)
 
  Real Huffman encoding/decoding using frequency tables
 
@@ -79,7 +79,7 @@ PSNR: 18.7 dB
 SSIM: 0.61
 CR: 5.45
 BPP: 1.45
- DONE! Output saved to output/reconstructed_image.png
+DONE! Output saved to output/reconstructed_image.png
 
 
  Folder Structure
@@ -102,13 +102,9 @@ compression_app/
 
 Evaluation Metrics
 MSE (Mean Squared Error)
-
 PSNR (Peak Signal-to-Noise Ratio)
-
 SSIM (Structural Similarity)
-
 CR (Compression Ratio)
-
 BPP (Bits Per Pixel)
 
 
