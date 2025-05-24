@@ -9,6 +9,7 @@
 #include "image_io.hpp"
 #include "utils.hpp"
 #include <iomanip> // Add this at the top for std::setw and std::setprecision
+#include <algorithm>
 
 // Function to detect image size from a binary file (returns 0 on success, -1 on failure)
 int detectSize(const std::string& filename, int& rows, int& cols) {
@@ -263,7 +264,33 @@ int main() {
         // --- Huffman encode ---
         std::unordered_map<int, std::string> huffTable;
         std::string encoded = huffmanEncode(flat_all, huffTable);
+
+        // --- Huffman process visualization ---
+        std::cout << "  [Huffman] Frequency table (top 10):" << std::endl;
+        std::unordered_map<int, int> freq;
+        for (int v : flat_all) freq[v]++;
+        std::vector<std::pair<int, int>> freq_vec(freq.begin(), freq.end());
+        std::sort(freq_vec.begin(), freq_vec.end(), [](auto& a, auto& b) { return b.second > a.second; });
+        for (size_t i = 0; i < std::min<size_t>(10, freq_vec.size()); ++i) {
+            std::cout << "    Value: " << freq_vec[i].first << " Freq: " << freq_vec[i].second << std::endl;
+        }
+
+        std::cout << "  [Huffman] Code table (top 10):" << std::endl;
+        int code_count = 0;
+        for (const auto& [val, code] : huffTable) {
+            std::cout << "    Value: " << val << " Code: " << code << std::endl;
+            if (++code_count >= 10) break;
+        }
+
+        std::cout << "  [Huffman] Encoded bitstream (first 64 bits): " << encoded.substr(0, 64) << std::endl;
         std::cout << "  [Huffman] Encoded bitstream length: " << encoded.size() << " bits" << std::endl;
+
+        double avg_code_len = 0.0;
+        for (const auto& [val, code] : huffTable) {
+            avg_code_len += code.length() * freq[val];
+        }
+        avg_code_len /= flat_all.size();
+        std::cout << "  [Huffman] Average code length: " << avg_code_len << " bits/symbol" << std::endl;
 
         // --- Huffman decode ---
         std::unordered_map<std::string, int> reverseTable;
