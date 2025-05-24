@@ -8,6 +8,7 @@
 #include "huffman.hpp"
 #include "image_io.hpp"
 #include "utils.hpp"
+#include <iomanip> // Add this at the top for std::setw and std::setprecision
 
 // Function to detect image size from a binary file (returns 0 on success, -1 on failure)
 int detectSize(const std::string& filename, int& rows, int& cols) {
@@ -67,6 +68,28 @@ void dequantize(std::vector<std::vector<float>>& band, float qstep) {
             v = v * qstep;
 }
 
+// Print min/max and a small block (e.g., top-left 2x2) of a 2D matrix
+void printMatrixStats(const std::vector<std::vector<float>>& mat, const std::string& name) {
+    float minV = mat[0][0], maxV = mat[0][0];
+    for (const auto& row : mat)
+        for (float v : row) {
+            if (v < minV) minV = v;
+            if (v > maxV) maxV = v;
+        }
+    std::cout << "----------------------------------------" << std::endl;
+    std::cout << "[" << name << "]" << std::endl;
+    std::cout << "  min: " << minV << ", max: " << maxV << std::endl;
+    std::cout << "  Top-left 2x2 block:" << std::endl;
+    for (int i = 0; i < std::min(2, (int)mat.size()); ++i) {
+        std::cout << "    ";
+        for (int j = 0; j < std::min(2, (int)mat[0].size()); ++j) {
+            std::cout << std::setw(8) << std::fixed << std::setprecision(2) << mat[i][j] << " ";
+        }
+        std::cout << std::endl;
+    }
+    std::cout << "----------------------------------------" << std::endl;
+}
+
 int main() {
     std::string outputPath = "output/reconstructed_image.png";
     std::string bandPaths[3] = {
@@ -87,6 +110,32 @@ int main() {
     std::vector<std::vector<float>> G = loadBinImage(bandPaths[1], rows, cols);
     std::vector<std::vector<float>> B = loadBinImage(bandPaths[2], rows, cols);
 
+    printMatrixStats(R, "Raw Band R");
+    printMatrixStats(G, "Raw Band G");
+    printMatrixStats(B, "Raw Band B");
+
+    // Normalize each band to [0,255] before saving as an image
+    auto normalize = [](std::vector<std::vector<float>>& img) {
+        float minVal = img[0][0], maxVal = img[0][0];
+        for (const auto& row : img)
+            for (float v : row) {
+                if (v < minVal) minVal = v;
+                if (v > maxVal) maxVal = v;
+            }
+        if (maxVal > minVal) {
+            for (auto& row : img)
+                for (float& v : row)
+                    v = 255.0f * (v - minVal) / (maxVal - minVal);
+        }
+    };
+
+    normalize(R);
+    normalize(G);
+    normalize(B);
+
+    saveColorImage(R, G, B, "output/original_image.png");
+    std::cout << "Original image saved as output/original_image.png" << std::endl;
+
     if (R.size() != (size_t)rows || G.size() != (size_t)rows || B.size() != (size_t)rows ||
         R[0].size() != (size_t)cols || G[0].size() != (size_t)cols || B[0].size() != (size_t)cols) {
         std::cerr << "❌ Loaded images have inconsistent sizes." << std::endl;
@@ -97,13 +146,13 @@ int main() {
     std::vector<std::vector<std::vector<float>>> channels_reconstructed;
 
     // --- Adaptive Quantization: set different qsteps for each subband ---
-    float q_LL2  = 3.0f;   // Most important, lowest quantization
-    float q_LH2  = 6.0f;
-    float q_HL2  = 6.0f;
-    float q_HH2  = 12.0f;  // Least important, highest quantization
-    float q_LH1  = 6.0f;
-    float q_HL1  = 6.0f;
-    float q_HH1  = 12.0f;
+    float q_LL2  = 0.2f;
+    float q_LH2  = 2.0f;
+    float q_HL2  = 2.0f;
+    float q_HH2  = 10.0f;
+    float q_LH1  = 5.0f;
+    float q_HL1  = 5.0f;
+    float q_HH1  = 20.0f;
 
     for (int c = 0; c < 3; ++c) {
         std::cout << "\n=== Processing Channel " << c << " ===" << std::endl;
@@ -123,6 +172,10 @@ int main() {
             std::cerr << "❌ Error: LL1 is empty after DWT!" << std::endl;
             return -1;
         }
+        printMatrixStats(LL1, "LL1 after L1 DWT");
+        printMatrixStats(LH1, "LH1 after L1 DWT");
+        printMatrixStats(HL1, "HL1 after L1 DWT");
+        printMatrixStats(HH1, "HH1 after L1 DWT");
 
         // Pad all subbands after first DWT
         padToEven(LL1);
@@ -145,6 +198,10 @@ int main() {
             std::cerr << "❌ Error: LL2 is empty after DWT!" << std::endl;
             return -1;
         }
+        printMatrixStats(LL2, "LL2 after L2 DWT");
+        printMatrixStats(LH2, "LH2 after L2 DWT");
+        printMatrixStats(HL2, "HL2 after L2 DWT");
+        printMatrixStats(HH2, "HH2 after L2 DWT");
         std::cout << "[DEBUG] LL2 size: " << LL2.size() << " x " << LL2[0].size() << std::endl;
 
         // --- Adaptive Quantization ---
@@ -155,6 +212,8 @@ int main() {
         quantize(LH1, q_LH1);
         quantize(HL1, q_HL1);
         quantize(HH1, q_HH1);
+        printMatrixStats(LL2, "LL2 quantized");
+        printMatrixStats(HH2, "HH2 quantized");
 
         // --- Flatten and concatenate all subbands (LL2, LH2, HL2, HH2, LH1, HL1, HH1) ---
         std::vector<int> flat_LL2 = flatten(LL2);
@@ -164,6 +223,22 @@ int main() {
         std::vector<int> flat_LH1 = flatten(LH1);
         std::vector<int> flat_HL1 = flatten(HL1);
         std::vector<int> flat_HH1 = flatten(HH1);
+
+        // Add this block here to analyze LL2 quantized values:
+        int minQ = flat_LL2[0], maxQ = flat_LL2[0];
+        std::unordered_map<int, int> hist;
+        for (int v : flat_LL2) {
+            if (v < minQ) minQ = v;
+            if (v > maxQ) maxQ = v;
+            hist[v]++;
+        }
+        std::cout << "[DEBUG] LL2 quantized min: " << minQ << ", max: " << maxQ << std::endl;
+        std::cout << "[DEBUG] LL2 histogram (first 10):" << std::endl;
+        int count = 0;
+        for (auto& [val, freq] : hist) {
+            std::cout << "  Value: " << val << " Freq: " << freq << std::endl;
+            if (++count >= 10) break;
+        }
 
         // Store sizes for splitting during decoding
         size_t sz_LL2 = flat_LL2.size();
@@ -188,6 +263,7 @@ int main() {
         // --- Huffman encode ---
         std::unordered_map<int, std::string> huffTable;
         std::string encoded = huffmanEncode(flat_all, huffTable);
+        std::cout << "  [Huffman] Encoded bitstream length: " << encoded.size() << " bits" << std::endl;
 
         // --- Huffman decode ---
         std::unordered_map<std::string, int> reverseTable;
